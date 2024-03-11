@@ -1,0 +1,255 @@
+---
+title: "Analysis of football player performnace"
+output: html_notebook
+author: "Karan Bhatt"
+---
+
+Installing the necessary packages that we are using.
+```{r}
+install.packages("dpylr")
+install.packages("ggplot2")
+install.packages("gridExtra")
+install.packages("moments")
+install.packages("corrplot")
+install.packages("ggcorrplot")
+install.packages("caTools")
+install.packages("caret")
+install.packages("car")
+install.packages("Metrics")
+install.packages("DataExplorer")
+install.packages("maps")
+install.packages("plotly")
+install.packages("randomForest")
+
+```
+Importing useful libraries
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(gridExtra)
+library(moments)
+library(corrplot)
+library(ggcorrplot)
+library(MASS)
+library(caTools)
+library(caret)
+library(car)
+library(Metrics)
+library(tidyverse)
+library(DataExplorer)
+library(magrittr)
+library(maps)
+library(plotly)
+library(randomForest)
+
+```
+Importing the dataset 
+```{r}
+df <- read_csv("D:/LSBU/Statistical Analysis Modeling/Dataset/archive/fifa_eda_stats.csv", locale = locale(encoding = "UTF-8"))
+View(df)
+head(df)
+```
+checking the dimention of data frame
+```{r}
+dim(df)
+```
+Removing the unnecessary columns for analysis
+```{r}
+df1 <- df [,-c(14,15,16,17,18,19,20,57)]
+View(df1)
+head(df1)
+```
+checking the dimesion of new dataframe
+```{r}
+dim(df1)
+#make.names(names(df1))
+#head(df1)
+```
+Checking total number of missing observation
+```{r}
+introduce(df1)
+plot_intro(df1)
+```
+checking total number of  missing observation column and also checking null values 
+```{r}
+sum(is.na(df1))
+sum(is.null(df1))
+```
+Removing the missing observation and storing in new data frame
+```{r}
+df2 <- na.omit(df1)
+head(df2)
+sum(is.na(df1))
+sum(is.na(df2))
+```
+Stirng manipulation for value and wage column
+```{r}
+df2$Wage = gsub("€","",df2$Wage)
+df2$Wage = as.numeric(gsub("K","",df2$Wage))
+df2$Value = gsub("€","",df2$Value)
+df2$Value = as.numeric(gsub("M","",df2$Value))
+head(df2)
+df3<-df2
+head(df3)
+```
+Showing the summary of dataframe
+```{r}
+str(df3)
+```
+Showing the summary of data set
+```{r}
+summary(df3)
+```
+
+Showing wage of per season
+```{r}
+graph1 <- ggplot(data = df3[1:10,],aes(x=Name,y=Wage)) + geom_bar(stat = "identity") + theme(axis.text.x = element_text(angle= 90,size = 10,hjust =1)) +  labs(title = "Players/Season Wage") + 
+  ylab("Wage") + 
+  xlab("Players Name")
+graph1
+
+```
+Now showing the age of players ranges in between
+```{r}
+graph2 <-(ggplot(df3,aes(x=Age)) + geom_bar() +   theme(axis.text.x = element_text(angle = 90,size = 10,hjust = 1)) +lims(x = c(NA,40)))
+suppressWarnings(print(graph2))
+```
+Showing the prefered foot of players
+```{r}
+graph3 <- ggplot(df3,aes(x=`Preferred Foot`)) + geom_bar() + theme(axis.text.x = element_text(angle = 90,size = 10,hjust = 1))
+graph3
+```
+Showing the highest players value ranges
+```{r}
+
+graph4 <- ggplot(df3,aes(x=`International Reputation`)) + geom_bar(color="red",fill="red") + theme(axis.text.x = element_text(angle = 90,size = 10))  + coord_flip()
+
+graph4
+```
+Showing the skewness of the data in overall column 
+```{r}
+hist(df3$Overall,main="Skewness", xlab="Overall")
+skewness(df3$Overall)
+```
+Check the variable 
+```{r}
+boxplot(df3$Overall)
+```
+
+showing the density plots of some data
+```{r}
+g_d = ggplot(data=df3,aes(x=Overall)) + geom_density(fill="blue",color="red")
+g_d1 = ggplot(data=df3,aes(x=Crossing)) + geom_density(fill="blue",color="red")
+g_d2 = ggplot(data=df3,aes(x=Finishing)) + geom_density(fill="blue",color="red")
+g_d3 = ggplot(data=df3,aes(x=Wage)) + geom_density(fill="blue",color="red")
+```
+Printing the plots together
+```{r}
+g_d
+g_d1
+g_d2
+g_d3
+
+```
+Finding the correlation between the 
+```{r}
+cor_df <- cor(df3[,unlist(lapply(df3, is.numeric))])
+head(round(cor_df,2))
+
+```
+Finding any significance difference between left or right preffered foot
+```{r}
+xt1 <- df3 %>% filter(`Preferred Foot` == "Left") %>% select(`Skill Moves`) %>% pull()
+xt2 <- df3 %>% filter(`Preferred Foot` == "Right") %>% select(`Skill Moves`) %>% pull()
+yt1 <- df3 %>% filter(`Preferred Foot` == "Left") %>% select(`Finishing`) %>% pull()
+yt2 <- df3 %>% filter(`Preferred Foot` == "Right") %>% select(`Finishing`) %>% pull()
+xht <- wilcox.test(xt1, xt2, alternative = "two.sided")
+yht <- wilcox.test(yt1, yt2, alternative = "two.sided")
+xht
+yht
+```
+Removing some more columns
+```{r}
+colnames(df3)
+df4 <- df3[,-c(1,2,3,4,7,8,9,10,14,15)]
+dim(df4)
+colnames(df4)
+```
+Splitiing the data
+```{r}
+sum(is.na(df4))
+train_r <- df4[1:12000,]
+test_r <- df4[12001:17918,]
+dim(train_r)
+dim(test_r)
+```
+Applying multilinear regression
+```{r}
+train <- lm(train_r$Overall ~ .,data = train_r)
+summary(train)
+```
+plotting the model
+```{r}
+plot(train)
+```
+
+ Now predict the value with model
+```{r}
+
+yp <- predict(train,test_r)
+View(yp)
+predict_value <- yp
+p_v_d <- data.frame(predict_value=yp,actual=test_r$Overall)
+dim(p_v_d)
+View(p_v_d)
+```
+chekcing the rmse value of model
+```{r}
+data.frame(RMSE = RMSE(yp, test_r$Overall))
+```
+plotting the regression model
+```{r}
+avPlots(train)
+```
+```{r}
+
+
+```
+ k-fold cross validation
+ checking the dimension of training dataset before applying cross validation
+```{r}
+dim(train_r)
+```
+ 
+```{r}
+valid <- trainControl(method = "cv", number = 3)
+```
+```{r}
+cross_model <- train(Overall ~ ., data = test_r, method = "lm", trControl = valid)
+print(cross_model)
+```
+Applying the second model which is random forest
+```{r}
+train1 <- randomForest(x=train_r,y=train_r$Overall, ntree=200,type="regression")
+train1
+```
+
+predicting the value from the train model
+```{r}
+yp1 <- predict(train1,test_r)
+View(yp1)
+p_v_d1 <- data.frame(predict_value=yp1,actual=test_r$Overall)
+dim(p_v_d1)
+View(p_v_d1)
+```
+checking the validation of random forest
+```{r}
+data.frame(RMSE = RMSE(yp1, test_r$Overall))
+
+```
+plotting the random forest model
+```{r}
+plot(train1)
+varImpPlot(train1)
+```
